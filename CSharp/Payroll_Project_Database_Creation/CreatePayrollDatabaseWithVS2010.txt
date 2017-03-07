@@ -1,0 +1,251 @@
+CREATE PROCEDURE [dbo].[CreateEmployeesTable]
+AS
+DROP TABLE [dbo].[Employees]
+
+CREATE TABLE [dbo].[Employees]
+([EmpID] int IDENTITY(1,1) NOT NULL,
+ [LName] nvarchar(25) NOT NULL,
+ [FName] nvarchar(25) NOT NULL,
+ [MInit] nchar(1) NULL,
+ [SSAN]  nchar(9) NOT NULL,
+ [PayRate] smallmoney NOT NULL,
+ CONSTRAINT [PK_Employees] PRIMARY KEY ([EmpID]))
+
+RETURN
+
+--******************************************************************
+
+CREATE PROCEDURE [dbo].[CreatePayrollTable]
+AS
+DROP TABLE [dbo].[Payroll]
+
+CREATE TABLE [dbo].[Payroll]
+([EmpID] int NOT NULL,
+ [WeekEnding] nchar(8) NOT NULL,
+ [HoursWorked] decimal(7,2) NULL,
+ CONSTRAINT [PK_Payroll] PRIMARY KEY ([EmpID],[WeekEnding]))
+
+RETURN
+
+
+--******************************************************************
+
+CREATE PROCEDURE [dbo].[PopulateTables]
+AS
+INSERT INTO [dbo].[Employees] ([LName],[FName],[MInit],[SSAN],[PayRate])
+VALUES (N'Adams',N'Andrew',N'A',N'111223333',10.25)
+INSERT INTO [dbo].[Employees] ([LName],[FName],[MInit],[SSAN],[PayRate])
+VALUES (N'Barnes',N'Betty',N'B',N'222334444',17.50)
+INSERT INTO [dbo].[Employees] ([LName],[FName],[MInit],[SSAN],[PayRate])
+VALUES (N'Cass',N'Carrie',NULL,N'333445555',8.75)
+INSERT INTO [dbo].[Employees] ([LName],[FName],[MInit],[SSAN],[PayRate])
+VALUES (N'Dobbs',N'Daniel',N'D',N'444556666',6.50)
+INSERT INTO [dbo].[Employees] ([LName],[FName],[MInit],[SSAN],[PayRate])
+VALUES (N'Evans',N'Edith',N'E',N'555667777',9.75)
+INSERT INTO [dbo].[Employees] ([LName],[FName],[MInit],[SSAN],[PayRate])
+VALUES (N'Franklin',N'Fredrick',N'F',N'666778888',11.00)
+ 
+INSERT INTO [dbo].[Payroll] ([EmpID],[WeekEnding],[HoursWorked])
+VALUES (1,N'20110803',40)
+INSERT INTO [dbo].[Payroll] ([EmpID],[WeekEnding],[HoursWorked])
+VALUES (1,N'20110810',36.25)
+INSERT INTO [dbo].[Payroll] ([EmpID],[WeekEnding],[HoursWorked])
+VALUES (1,N'20110817',32.5)
+INSERT INTO [dbo].[Payroll] ([EmpID],[WeekEnding],[HoursWorked])
+VALUES (2,N'20110803',39)
+INSERT INTO [dbo].[Payroll] ([EmpID],[WeekEnding],[HoursWorked])
+VALUES (2,N'20110817',40)
+INSERT INTO [dbo].[Payroll] ([EmpID],[WeekEnding],[HoursWorked])
+VALUES (3,N'20110803',35)
+INSERT INTO [dbo].[Payroll] ([EmpID],[WeekEnding],[HoursWorked])
+VALUES (3,N'20110810',35)
+INSERT INTO [dbo].[Payroll] ([EmpID],[WeekEnding],[HoursWorked])
+VALUES (3,N'20110817',35)
+INSERT INTO [dbo].[Payroll] ([EmpID],[WeekEnding],[HoursWorked])
+VALUES (5,N'20110810',20)
+INSERT INTO [dbo].[Payroll] ([EmpID],[WeekEnding],[HoursWorked])
+VALUES (6,N'20110803',31)
+INSERT INTO [dbo].[Payroll] ([EmpID],[WeekEnding],[HoursWorked])
+VALUES (6,N'20110810',36.25)
+
+RETURN
+
+--******************************************************************
+
+CREATE PROCEDURE [dbo].[InsertEmployee]
+@LName nvarchar(25),
+@FName nvarchar(25),
+@Minit nchar(1),
+@SSAN nchar(9),
+@PayRate smallmoney,
+@NewEmpID int OUTPUT
+AS
+--*************************************************
+--** Insert a new employee into the Employees table
+--*************************************************
+SET NOCOUNT ON;
+DECLARE @ErrCode int;
+
+INSERT INTO [dbo].[Employees] ([LName],[FName],[MInit],[SSAN],[PayRate])
+VALUES (@LName,@FName,@Minit,@SSAN,@PayRate);
+
+SELECT @ErrCode = @@ERROR, @NewEmpID = @@IDENTITY;
+
+SET NOCOUNT OFF;
+RETURN @ErrCode;
+
+--******************************************************************
+
+CREATE PROCEDURE [dbo].[InsertPayroll]
+@EmpID int,
+@WeekEnding nchar(8),
+@HoursWorked decimal(7,2)
+AS
+--*************************************************
+--** Insert a new pay record into the Payroll table
+--*************************************************
+SET NOCOUNT ON;
+DECLARE @ErrCode int;
+
+INSERT INTO [dbo].[Payroll] ([EmpID],[WeekEnding],[HoursWorked])
+VALUES (@EmpID,@WeekEnding,@HoursWorked);
+
+SET @ErrCode = @@ERROR;
+
+SET NOCOUNT OFF;
+RETURN @ErrCode;
+
+--******************************************************************
+
+CREATE PROCEDURE [dbo].[GetTotalPayrollByWeek]
+AS
+--*************************************************
+--** Calculate total payroll
+--*************************************************
+SET NOCOUNT ON;
+DECLARE @ErrCode int;
+
+SELECT [p].[WeekEnding],SUM([p].[HoursWorked] * [e].[PayRate]) AS [TotalPayroll]
+FROM [dbo].[Payroll] [p]
+INNER JOIN [dbo].[Employees] [e] ON [e].[EmpID] = [p].[EmpID]
+GROUP BY [p].[WeekEnding]
+ORDER BY [p].[WeekEnding];
+
+SET @ErrCode = @@ERROR;
+
+SET NOCOUNT OFF;
+RETURN @ErrCode;
+
+--******************************************************************
+
+CREATE PROCEDURE [dbo].[GetPayrollByEmployee]
+@EmpID int
+AS
+--*************************************************
+--** Retrieve payroll records by employee
+--*************************************************
+SET NOCOUNT ON;
+DECLARE @ErrCode int;
+
+SELECT [e].[EmpID],RTRIM([e].[LName] + N', ' + [e].[FName] + N' ' + COALESCE([e].[MInit],N'')) AS [EmpName],
+       [p].[WeekEnding],[p].[HoursWorked],[e].[PayRate],
+       [p].[HoursWorked] * [e].[PayRate] AS [TotalPay]
+FROM [dbo].[Payroll] [p]
+INNER JOIN [dbo].[Employees] [e] ON [e].[EmpID] = [p].[EmpID]
+WHERE [e].[EmpID] = @EmpID
+ORDER BY [p].[WeekEnding];
+
+SET @ErrCode = @@ERROR;
+
+SET NOCOUNT OFF;
+RETURN @ErrCode;
+
+--******************************************************************
+
+CREATE PROCEDURE [dbo].[GetAllEmployees]
+AS
+--*************************************************
+--** Retrieves all records from Employee table
+--*************************************************
+SET NOCOUNT ON;
+DECLARE @ErrCode int;
+
+SELECT [EmpID],[FName],[MInit],[LName],[SSAN],[PayRate]
+FROM [dbo].[Employees]
+ORDER BY [LName],[FName],[EmpID];
+
+SET NOCOUNT OFF;
+RETURN @ErrCode;
+
+--******************************************************************
+
+CREATE PROCEDURE [dbo].[GetPayrollListing]
+AS
+--*************************************************
+--** Generate a payroll listing by week ending
+--*************************************************
+SET NOCOUNT ON;
+DECLARE @ErrCode int;
+
+SELECT e.LName, e.FName, p.WeekEnding, p.HoursWorked,
+       p.HoursWorked * e.PayRate AS TotalPay
+FROM Employees e
+INNER JOIN Payroll p ON e.EmpID = p.EmpID
+ORDER BY p.WeekEnding;
+
+SET NOCOUNT OFF;
+RETURN @ErrCode;
+
+--******************************************************************
+
+CREATE PROCEDURE [dbo].[GetEmployeeByID]
+@EmpID int
+AS
+--*************************************************
+--** Retrieves a record from Employee table by EmpId
+--*************************************************
+SET NOCOUNT ON;
+DECLARE @ErrCode int;
+
+SELECT [EmpID],[FName],[MInit],[LName],[SSAN],[PayRate]
+FROM [dbo].[Employees]
+WHERE [EmpID] = @EmpID;
+
+SET NOCOUNT OFF;
+RETURN @ErrCode;
+
+--******************************************************************
+
+CREATE PROCEDURE [dbo].[GetPayRateByID] 
+@EmpID int,
+@PayRate smallmoney OUTPUT
+AS
+--*************************************************
+--** Retrieves payrate from Employee table by EmpId
+--*************************************************
+SET NOCOUNT ON;
+DECLARE @ErrCode int;
+
+SELECT @Payrate = [PayRate]
+FROM [dbo].[Employees]
+WHERE [EmpID] = @EmpID;
+
+SET NOCOUNT OFF;
+RETURN @ErrCode;
+
+--******************************************************************
+
+CREATE PROCEDURE [dbo].[GetEmployeeNames]
+AS
+--*************************************************
+--** Retrieves ID and name from Employee table
+--*************************************************
+SET NOCOUNT ON;
+DECLARE @ErrCode int;
+
+SELECT [EmpID],[LName] + N', ' + LTRIM(RTRIM([FName] + N' ' + ISNULL([MInit],N''))) AS [FullName]
+FROM [dbo].[Employees]
+ORDER BY [FullName],[EmpID];
+
+SET NOCOUNT OFF;
+RETURN @ErrCode;
